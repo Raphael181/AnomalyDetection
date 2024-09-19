@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import matplotlib.pyplot as plt
 import io
 
@@ -14,15 +15,27 @@ def generate_synthetic_data(n_samples=10000, n_anomalies=50, n_outliers=10):
     np.random.seed(42)
     date_range = pd.date_range(start='2024-01-01', periods=n_samples, freq='H')
     normal_data = np.random.normal(loc=50, scale=10, size=n_samples)
+    
+    # Initialize all labels to 1 (normal)
+    labels = np.ones(n_samples)
+    
+    # Inject anomalies
     anomaly_indices = np.random.choice(n_samples, size=n_anomalies, replace=False)
     normal_data[anomaly_indices] += np.random.uniform(50, 100, size=n_anomalies)
+    labels[anomaly_indices] = -1  # Label anomalies as -1
+    
+    # Inject outliers
     outlier_indices = np.random.choice(n_samples, size=n_outliers, replace=False)
     normal_data[outlier_indices] = np.random.uniform(200, 300, size=n_outliers)
+    labels[outlier_indices] = -1  # Label outliers as -1
+    
     df = pd.DataFrame({
         'datetime': date_range,
-        'Global_active_power': normal_data
+        'Global_active_power': normal_data,
+        'label': labels  # Include ground truth labels
     })
     return df
+
 
 def plot_data(df):
     fig, ax = plt.subplots(figsize=(15, 6))
@@ -51,9 +64,22 @@ def main():
     X_scaled = scaler.transform(X)
     df['anomaly'] = model.predict(X_scaled)
 
+    # Calculate metrics
+    accuracy = accuracy_score(df['label'], df['anomaly'])
+    precision = precision_score(df['label'], df['anomaly'], pos_label=-1)
+    recall = recall_score(df['label'], df['anomaly'], pos_label=-1)
+    f1 = f1_score(df['label'], df['anomaly'], pos_label=-1)
+
     # Display the data
     st.subheader('Data Preview')
     st.write(df.head())
+
+    # Display metrics
+    st.subheader('Model Evaluation Metrics')
+    st.write(f'Accuracy: {accuracy:.2f}')
+    st.write(f'Precision: {precision:.2f}')
+    st.write(f'Recall: {recall:.2f}')
+    st.write(f'F1-Score: {f1:.2f}')
 
     # Plot the results
     st.subheader('Anomaly Detection Visualization')
